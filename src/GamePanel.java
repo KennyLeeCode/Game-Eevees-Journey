@@ -13,18 +13,24 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     private static final int FPS = 60;
     private Thread gameThread;
 
-    private final KeyHandler       keyHandler        = new KeyHandler();
-    private final TileMap          tileMap           = new TileMap();
-    private final Player           player            = new Player(keyHandler);
-    private final EncounterManager encounterManager  = new EncounterManager();
+    private final KeyHandler       keyHandler       = new KeyHandler();
+    private final TileMap          tileMap          = new TileMap();
+    private final Player           player           = new Player(keyHandler);
+    private final EncounterManager encounterManager = new EncounterManager();
+    private final Collection       collection       = new Collection();
 
     private GameState    state            = GameState.EXPLORE;
     private Eeveelution  currentEncounter = null;
     private BattleScreen battleScreen     = null;
     private int          playerHp         = 50;
 
-    private int encounterTimer = 0;
+    private int    encounterTimer            = 0;
     private static final int ENCOUNTER_FLASH_FRAMES = 90;
+
+    // caught toast
+    private String caughtToastMsg  = "";
+    private int    caughtToastTimer = 0;
+    private static final int TOAST_DURATION = 180; // 3 seconds
 
     public GamePanel() {
         setPreferredSize(new Dimension(GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT));
@@ -62,6 +68,8 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     }
 
     private void update() {
+        if (caughtToastTimer > 0) caughtToastTimer--;
+
         switch (state) {
             case EXPLORE -> {
                 boolean moved = player.update(tileMap);
@@ -70,7 +78,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                     TileType tile = tileMap.tileAt(
                         player.worldX + GameWindow.TILE_SIZE / 2,
                         player.worldY + GameWindow.TILE_SIZE / 2);
-                    if (encounterManager.onStep(tile)) {
+                    if (encounterManager.onStep(tile, collection)) {
                         currentEncounter = encounterManager.getPending();
                         encounterManager.clearPending();
                         state = GameState.ENCOUNTER;
@@ -89,6 +97,12 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                 battleScreen.update();
                 if (battleScreen.isReadyToTransition()) {
                     playerHp = battleScreen.getPlayerHp();
+                    if (battleScreen.getOutcome() == BattleScreen.Outcome.CAUGHT) {
+                        collection.add(battleScreen.getEeveelution());
+                        caughtToastMsg   = battleScreen.getEeveelution().name + " added to collection!  ("
+                                         + collection.count() + "/" + collection.total() + ")";
+                        caughtToastTimer = TOAST_DURATION;
+                    }
                     state = GameState.EXPLORE;
                     battleScreen = null;
                 }
@@ -108,6 +122,8 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                 player.draw(g2, tileMap.camX, tileMap.camY);
                 drawZoneHint(g2);
                 drawPlayerHp(g2);
+                drawCollectionCounter(g2);
+                if (caughtToastTimer > 0) drawCaughtToast(g2);
             }
             case ENCOUNTER -> {
                 tileMap.draw(g2);
@@ -129,7 +145,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         Eeveelution here = Eeveelution.forZone(tile);
         if (here == null) return;
 
-        String hint = here.name + " may appear!";
+        String hint = collection.has(here) ? here.name + " [caught]" : here.name + " may appear!";
         g2.setFont(new Font("Arial", Font.BOLD, 13));
         int w = g2.getFontMetrics().stringWidth(hint) + 16;
         int x = (GameWindow.SCREEN_WIDTH - w) / 2;
@@ -137,7 +153,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
 
         g2.setColor(new Color(0, 0, 0, 160));
         g2.fillRoundRect(x, y, w, 24, 8, 8);
-        g2.setColor(here.color);
+        g2.setColor(collection.has(here) ? new Color(160, 160, 160) : here.color);
         g2.drawString(hint, x + 8, y + 17);
     }
 
@@ -160,6 +176,32 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                   : ratio > 0.2 ? new Color(220, 180, 40)
                                 : new Color(200, 60, 60));
         g2.fillRoundRect(x, y + 4, (int)(barW * ratio), barH, 4, 4);
+    }
+
+    private void drawCollectionCounter(Graphics2D g2) {
+        String text = "Caught: " + collection.count() + "/" + collection.total();
+        g2.setFont(new Font("Arial", Font.BOLD, 12));
+        int w = g2.getFontMetrics().stringWidth(text) + 16;
+
+        g2.setColor(new Color(0, 0, 0, 160));
+        g2.fillRoundRect(8, 8, w, 22, 6, 6);
+        g2.setColor(Color.WHITE);
+        g2.drawString(text, 16, 23);
+    }
+
+    private void drawCaughtToast(Graphics2D g2) {
+        float alpha = Math.min(1f, caughtToastTimer / 30f); // fade in/out
+        int a = (int)(200 * alpha);
+
+        g2.setFont(new Font("Arial", Font.BOLD, 15));
+        int w = g2.getFontMetrics().stringWidth(caughtToastMsg) + 24;
+        int x = (GameWindow.SCREEN_WIDTH - w) / 2;
+        int y = 60;
+
+        g2.setColor(new Color(30, 160, 80, a));
+        g2.fillRoundRect(x, y, w, 28, 10, 10);
+        g2.setColor(new Color(255, 255, 255, a));
+        g2.drawString(caughtToastMsg, x + 12, y + 20);
     }
 
     private void drawEncounterFlash(Graphics2D g2) {

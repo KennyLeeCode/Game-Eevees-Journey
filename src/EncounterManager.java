@@ -11,8 +11,9 @@ public class EncounterManager {
     private Eeveelution pending = null;
 
     // call each frame the player actually moved; returns true when encounter triggers
-    public boolean onStep(TileType currentTile) {
-        if (Eeveelution.forZone(currentTile) == null) return false;
+    public boolean onStep(TileType currentTile, Collection collection) {
+        Eeveelution e = Eeveelution.forZone(currentTile);
+        if (e == null || collection.has(e)) return false;
 
         stepCount++;
         if (stepCount < STEPS_BETWEEN_CHECKS) return false;
