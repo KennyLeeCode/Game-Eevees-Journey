@@ -1,5 +1,7 @@
+// Controls which screen is currently active
 public enum GameState {
-    EXPLORE,
-    ENCOUNTER,  // "wild X appeared" transition screen
-    BATTLE
+    EXPLORE,    // player is walking around the map
+    ENCOUNTER,  // flashing transition when a wild Eeveelution appears
+    BATTLE,     // battle screen is open
+    COLLECTION  // collection overlay is open
 }

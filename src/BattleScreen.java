@@ -5,28 +5,30 @@ import java.awt.image.BufferedImage;
 import java.awt.event.KeyEvent;
 import java.util.Random;
 
+// Handles everything that happens during a battle:
+// drawing the UI, processing player input, and running the catch/attack/run logic
 public class BattleScreen {
 
+    // The result of the battle — GamePanel reads this to decide what to do next
     public enum Outcome { NONE, FLED, CAUGHT, FAINTED }
 
-    private static final int MAX_PLAYER_HP = 50;
-    private static final int MENU_Y        = 360;
-    private static final int[] OPTION_X    = {120, 340, 560};
-    private static final String[] OPTIONS  = {"ATTACK", "CATCH", "RUN"};
+    private static final int      MAX_PLAYER_HP = 50;
+    private static final int      MENU_Y        = 360; // y position where the bottom panel starts
+    private static final int[]    OPTION_X      = {120, 340, 560};
+    private static final String[] OPTIONS       = {"ATTACK", "CATCH", "RUN"};
 
     private final Eeveelution eeveelution;
-    private final Random rng = new Random();
+    private final Random      rng = new Random();
 
-    private int enemyHp;
-    private int playerHp;
-    private int selectedOption = 0;
+    private int    enemyHp;
+    private int    playerHp;
+    private int    selectedOption = 0;
 
-    private String logLine1 = "What will you do?";
-    private String logLine2 = "";
-
+    private String  logLine1     = "What will you do?";
+    private String  logLine2     = "";
     private Outcome outcome      = Outcome.NONE;
     private boolean waitingInput = true;
-    private int outcomePause     = 0; // countdown before GamePanel transitions
+    private int     outcomePause = 0; // frames to wait after battle ends before returning to map
 
     public BattleScreen(Eeveelution e, int currentPlayerHp) {
         this.eeveelution = e;
@@ -34,6 +36,7 @@ public class BattleScreen {
         this.playerHp    = currentPlayerHp;
     }
 
+    // Called by GamePanel when a key is pressed during battle
     public void handleKey(int keyCode) {
         if (!waitingInput) return;
         if (keyCode == KeyEvent.VK_LEFT  && selectedOption > 0) selectedOption--;
@@ -51,23 +54,25 @@ public class BattleScreen {
     }
 
     private void doAttack() {
-        int dmg = 8 + rng.nextInt(8);
-        enemyHp = Math.max(0, enemyHp - dmg);
+        int dmg = 8 + rng.nextInt(8); // deals 8–15 damage
+        enemyHp  = Math.max(0, enemyHp - dmg);
         logLine1 = "You attacked! Dealt " + dmg + " damage.";
 
         if (enemyHp <= 0) {
+            // enemy fainted but wasn't caught — treat as fled
             logLine2 = eeveelution.name + " fainted! It got away...";
             endBattle(Outcome.FLED);
             return;
         }
 
-        int edamage = 5 + rng.nextInt(6);
+        // enemy attacks back after the player's turn
+        int edamage = 5 + rng.nextInt(6); // deals 5–10 damage
         playerHp = Math.max(0, playerHp - edamage);
         logLine2 = eeveelution.name + " hit back! Took " + edamage + " damage.";
 
         if (playerHp <= 0) {
             logLine2 = "You fainted! Fleeing...";
-            playerHp = MAX_PLAYER_HP; // restore on faint
+            playerHp = MAX_PLAYER_HP; // restore HP so the player can keep exploring
             endBattle(Outcome.FAINTED);
             return;
         }
@@ -75,11 +80,12 @@ public class BattleScreen {
     }
 
     private void doCatch() {
-        // catch chance: 10% at full HP, up to 80% at 1 HP
+        // catch chance scales with how much HP the enemy has lost
+        // 10% at full HP → up to 80% at 1 HP remaining
         double catchChance = 0.10 + 0.70 * (1.0 - (double) enemyHp / eeveelution.maxHp);
         if (rng.nextDouble() < catchChance) {
             logLine1 = "Gotcha! " + eeveelution.name + " was caught!";
-            logLine2  = "";
+            logLine2 = "";
             endBattle(Outcome.CAUGHT);
         } else {
             logLine1 = "Oh no! " + eeveelution.name + " broke free!";
@@ -97,29 +103,30 @@ public class BattleScreen {
 
     private void doRun() {
         logLine1 = "Got away safely!";
-        logLine2  = "";
+        logLine2 = "";
         endBattle(Outcome.FLED);
     }
 
     private void endBattle(Outcome o) {
         outcome      = o;
-        outcomePause = 120; // 2 seconds at 60fps before transition
+        outcomePause = 120; // wait 2 seconds (at 60fps) so the player can read the result
     }
 
+    // Counts down the pause timer after battle ends
     public void update() {
         if (outcome != Outcome.NONE && outcomePause > 0) outcomePause--;
     }
 
+    // GamePanel calls this to know when it's safe to leave the battle screen
     public boolean isReadyToTransition() {
         return outcome != Outcome.NONE && outcomePause <= 0;
     }
 
-    public Outcome getOutcome()  { return outcome; }
-    public int     getPlayerHp() { return playerHp; }
+    public Outcome     getOutcome()     { return outcome; }
+    public int         getPlayerHp()    { return playerHp; }
     public Eeveelution getEeveelution() { return eeveelution; }
 
     public void draw(Graphics2D g2) {
-        // background
         g2.setColor(new Color(20, 10, 40));
         g2.fillRect(0, 0, GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT);
 
@@ -128,15 +135,14 @@ public class BattleScreen {
     }
 
     private void drawBattlefield(Graphics2D g2) {
-        // ground strips
         g2.setColor(new Color(40, 30, 70));
         g2.fillRect(0, 260, GameWindow.SCREEN_WIDTH, 100);
 
-        // enemy sprite — right side
+        // enemy sprite on the right
         BufferedImage enemySprite = SpriteLoader.getEeveelution(eeveelution);
         int eSize = 180;
-        int eX = GameWindow.SCREEN_WIDTH - eSize - 60;
-        int eY = 80;
+        int eX    = GameWindow.SCREEN_WIDTH - eSize - 60;
+        int eY    = 80;
         if (enemySprite != null) {
             g2.drawImage(enemySprite, eX, eY, eSize, eSize, null);
         } else {
@@ -144,15 +150,11 @@ public class BattleScreen {
             g2.fillOval(eX + 20, eY + 20, eSize - 40, eSize - 40);
         }
 
-        // enemy name + HP bar
-        drawNameHpBox(g2, eeveelution.name, enemyHp, eeveelution.maxHp,
-                      40, 60, eeveelution.color, false);
+        drawNameHpBox(g2, eeveelution.name, enemyHp, eeveelution.maxHp, 40, 60, eeveelution.color);
 
-        // player sprite — left side (back-facing)
+        // player sprite on the left (back-facing, as if looking at the enemy)
         BufferedImage playerSprite = getPlayerBackSprite();
-        int pSize = 140;
-        int pX = 60;
-        int pY = 160;
+        int pSize = 140, pX = 60, pY = 160;
         if (playerSprite != null) {
             g2.drawImage(playerSprite, pX, pY, pSize, pSize, null);
         } else {
@@ -162,40 +164,35 @@ public class BattleScreen {
     }
 
     private void drawMenuPanel(Graphics2D g2) {
-        // panel background
         g2.setColor(new Color(15, 10, 30));
         g2.fillRect(0, MENU_Y, GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT - MENU_Y);
         g2.setColor(new Color(80, 60, 120));
         g2.drawRect(0, MENU_Y, GameWindow.SCREEN_WIDTH - 1, GameWindow.SCREEN_HEIGHT - MENU_Y - 1);
 
-        // battle log
+        // battle log — two lines so both the player action and enemy response are visible
         g2.setFont(new Font("Arial", Font.PLAIN, 15));
         g2.setColor(Color.WHITE);
         g2.drawString(logLine1, 24, MENU_Y + 30);
         g2.setColor(new Color(200, 200, 200));
         g2.drawString(logLine2, 24, MENU_Y + 54);
 
-        // options
         if (waitingInput) {
             g2.setFont(new Font("Arial", Font.BOLD, 18));
             for (int i = 0; i < OPTIONS.length; i++) {
                 boolean sel = (i == selectedOption);
                 g2.setColor(sel ? Color.YELLOW : new Color(180, 180, 180));
-                String label = (sel ? "> " : "  ") + OPTIONS[i];
-                g2.drawString(label, OPTION_X[i], MENU_Y + 100);
+                g2.drawString((sel ? "> " : "  ") + OPTIONS[i], OPTION_X[i], MENU_Y + 100);
             }
             g2.setFont(new Font("Arial", Font.PLAIN, 11));
             g2.setColor(new Color(140, 140, 140));
             g2.drawString("LEFT / RIGHT to choose   ENTER to confirm", 24, MENU_Y + 125);
         }
 
-        // player HP bar
         drawHpBar(g2, "You", playerHp, MAX_PLAYER_HP,
                   GameWindow.SCREEN_WIDTH - 260, MENU_Y + 155, new Color(100, 220, 100));
     }
 
-    private void drawNameHpBox(Graphics2D g2, String name, int hp, int maxHp,
-                                int x, int y, Color barColor, boolean rightAlign) {
+    private void drawNameHpBox(Graphics2D g2, String name, int hp, int maxHp, int x, int y, Color barColor) {
         int boxW = 220, boxH = 56;
         g2.setColor(new Color(0, 0, 0, 180));
         g2.fillRoundRect(x, y, boxW, boxH, 8, 8);
@@ -210,7 +207,7 @@ public class BattleScreen {
     }
 
     private void drawHpBar(Graphics2D g2, String label, int hp, int maxHp, int x, int y, Color fill) {
-        int barW = 200, barH = 12;
+        int    barW  = 200, barH = 12;
         double ratio = (double) hp / maxHp;
 
         g2.setFont(new Font("Arial", Font.BOLD, 12));
@@ -218,11 +215,12 @@ public class BattleScreen {
         g2.drawString(label + ": " + hp + "/" + maxHp, x, y + barH);
 
         int labelW = g2.getFontMetrics().stringWidth(label + ": " + hp + "/" + maxHp) + 8;
-        int bx = x + labelW;
+        int bx     = x + labelW;
 
         g2.setColor(new Color(60, 60, 60));
         g2.fillRoundRect(bx, y, barW, barH, 4, 4);
 
+        // bar turns yellow below 50% and red below 20%
         Color barColor = ratio > 0.5 ? fill
                        : ratio > 0.2 ? new Color(240, 200, 40)
                                      : new Color(220, 60, 60);
@@ -238,6 +236,6 @@ public class BattleScreen {
         if (sheet == null) return null;
         int fw = sheet.getWidth()  / 3;
         int fh = sheet.getHeight() / 2;
-        return sheet.getSubimage(0, fh, fw, fh); // row 1 col 0 = back idle
+        return sheet.getSubimage(0, fh, fw, fh); // row 1, col 0 = back-facing idle
     }
 }

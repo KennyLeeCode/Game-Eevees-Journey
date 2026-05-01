@@ -1,6 +1,8 @@
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 
+// Tracks which movement keys are currently held down each frame
+// Supports both WASD and arrow keys
 public class KeyHandler implements KeyListener {
 
     public boolean up, down, left, right;

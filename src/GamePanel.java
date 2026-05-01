@@ -8,34 +8,36 @@ import java.awt.RenderingHints;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 
+// The main game panel — runs the game loop, manages game state, and draws each screen
 public class GamePanel extends JPanel implements Runnable, KeyListener {
 
     private static final int FPS = 60;
     private Thread gameThread;
 
-    private final KeyHandler       keyHandler       = new KeyHandler();
-    private final TileMap          tileMap          = new TileMap();
-    private final Player           player           = new Player(keyHandler);
-    private final EncounterManager encounterManager = new EncounterManager();
-    private final Collection       collection       = new Collection();
+    private final KeyHandler        keyHandler        = new KeyHandler();
+    private final TileMap           tileMap           = new TileMap();
+    private final Player            player            = new Player(keyHandler);
+    private final EncounterManager  encounterManager  = new EncounterManager();
+    private final Collection        collection        = new Collection();
+    private final CollectionScreen  collectionScreen  = new CollectionScreen();
 
     private GameState    state            = GameState.EXPLORE;
     private Eeveelution  currentEncounter = null;
     private BattleScreen battleScreen     = null;
     private int          playerHp         = 50;
 
-    private int    encounterTimer            = 0;
+    private int encounterTimer = 0;
     private static final int ENCOUNTER_FLASH_FRAMES = 90;
 
-    // caught toast
-    private String caughtToastMsg  = "";
+    // brief toast shown after catching an Eeveelution
+    private String caughtToastMsg   = "";
     private int    caughtToastTimer = 0;
-    private static final int TOAST_DURATION = 180; // 3 seconds
+    private static final int TOAST_DURATION = 180; // 3 seconds at 60fps
 
     public GamePanel() {
         setPreferredSize(new Dimension(GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT));
         setBackground(Color.BLACK);
-        setDoubleBuffered(true);
+        setDoubleBuffered(true); // reduces flicker by drawing to an off-screen buffer first
         setFocusable(true);
         addKeyListener(keyHandler);
         addKeyListener(this);
@@ -48,11 +50,12 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         gameThread.start();
     }
 
+    // Game loop — updates and redraws at 60fps using a delta-time accumulator
     @Override
     public void run() {
         double drawInterval = 1_000_000_000.0 / FPS;
-        double delta = 0;
-        long lastTime = System.nanoTime();
+        double delta        = 0;
+        long   lastTime     = System.nanoTime();
 
         while (gameThread != null) {
             long currentTime = System.nanoTime();
@@ -75,6 +78,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                 boolean moved = player.update(tileMap);
                 tileMap.updateCamera(player.worldX, player.worldY);
                 if (moved) {
+                    // sample the tile under the center of the player each step
                     TileType tile = tileMap.tileAt(
                         player.worldX + GameWindow.TILE_SIZE / 2,
                         player.worldY + GameWindow.TILE_SIZE / 2);
@@ -107,6 +111,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                     battleScreen = null;
                 }
             }
+            case COLLECTION -> {} // no update logic needed — just a static overlay
         }
     }
 
@@ -133,11 +138,18 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
             case BATTLE -> {
                 if (battleScreen != null) battleScreen.draw(g2);
             }
+            case COLLECTION -> {
+                // draw the map behind the overlay so it doesn't look empty
+                tileMap.draw(g2);
+                player.draw(g2, tileMap.camX, tileMap.camY);
+                collectionScreen.draw(g2, collection);
+            }
         }
 
         g2.dispose();
     }
 
+    // Shows which Eeveelution zone the player is standing in
     private void drawZoneHint(Graphics2D g2) {
         TileType tile = tileMap.tileAt(
             player.worldX + GameWindow.TILE_SIZE / 2,
@@ -158,8 +170,8 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     }
 
     private void drawPlayerHp(Graphics2D g2) {
-        int x = GameWindow.SCREEN_WIDTH - 180;
-        int y = GameWindow.SCREEN_HEIGHT - 36;
+        int x    = GameWindow.SCREEN_WIDTH - 180;
+        int y    = GameWindow.SCREEN_HEIGHT - 36;
         int barW = 120, barH = 10;
 
         g2.setColor(new Color(0, 0, 0, 160));
@@ -179,7 +191,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     }
 
     private void drawCollectionCounter(Graphics2D g2) {
-        String text = "Caught: " + collection.count() + "/" + collection.total();
+        String text = "Caught: " + collection.count() + "/" + collection.total() + "  [C] to view";
         g2.setFont(new Font("Arial", Font.BOLD, 12));
         int w = g2.getFontMetrics().stringWidth(text) + 16;
 
@@ -190,8 +202,9 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     }
 
     private void drawCaughtToast(Graphics2D g2) {
-        float alpha = Math.min(1f, caughtToastTimer / 30f); // fade in/out
-        int a = (int)(200 * alpha);
+        // fades in over the first 30 frames and out at the end
+        float alpha = Math.min(1f, caughtToastTimer / 30f);
+        int   a     = (int)(200 * alpha);
 
         g2.setFont(new Font("Arial", Font.BOLD, 15));
         int w = g2.getFontMetrics().stringWidth(caughtToastMsg) + 24;
@@ -205,6 +218,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     }
 
     private void drawEncounterFlash(Graphics2D g2) {
+        // pulses the Eeveelution's color using a sine wave for a flickering effect
         int alpha = (int)(160 * Math.abs(Math.sin(encounterTimer * 0.15)));
         g2.setColor(new Color(
             currentEncounter.color.getRed(),
@@ -223,6 +237,11 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     public void keyPressed(KeyEvent e) {
         if (state == GameState.BATTLE && battleScreen != null) {
             battleScreen.handleKey(e.getKeyCode());
+        }
+        // C key toggles the collection screen from the overworld
+        if (e.getKeyCode() == KeyEvent.VK_C) {
+            if (state == GameState.EXPLORE)     state = GameState.COLLECTION;
+            else if (state == GameState.COLLECTION) state = GameState.EXPLORE;
         }
     }
     @Override public void keyReleased(KeyEvent e) {}
