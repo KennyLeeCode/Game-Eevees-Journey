@@ -13,15 +13,16 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     private static final int FPS = 60;
     private Thread gameThread;
 
-    private final KeyHandler      keyHandler       = new KeyHandler();
-    private final TileMap         tileMap          = new TileMap();
-    private final Player          player           = new Player(keyHandler);
-    private final EncounterManager encounterManager = new EncounterManager();
+    private final KeyHandler       keyHandler        = new KeyHandler();
+    private final TileMap          tileMap           = new TileMap();
+    private final Player           player            = new Player(keyHandler);
+    private final EncounterManager encounterManager  = new EncounterManager();
 
-    private GameState state = GameState.EXPLORE;
-    private Eeveelution currentEncounter = null;
+    private GameState    state            = GameState.EXPLORE;
+    private Eeveelution  currentEncounter = null;
+    private BattleScreen battleScreen     = null;
+    private int          playerHp         = 50;
 
-    // flicker timer for encounter flash effect
     private int encounterTimer = 0;
     private static final int ENCOUNTER_FLASH_FRAMES = 90;
 
@@ -61,28 +62,38 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     }
 
     private void update() {
-        if (state == GameState.EXPLORE) {
-            boolean moved = player.update(tileMap);
-            tileMap.updateCamera(player.worldX, player.worldY);
-
-            if (moved) {
-                TileType standing = tileMap.tileAt(player.worldX + GameWindow.TILE_SIZE / 2,
-                                                   player.worldY + GameWindow.TILE_SIZE / 2);
-                if (encounterManager.onStep(standing)) {
-                    currentEncounter = encounterManager.getPending();
-                    encounterManager.clearPending();
-                    state = GameState.ENCOUNTER;
-                    encounterTimer = 0;
+        switch (state) {
+            case EXPLORE -> {
+                boolean moved = player.update(tileMap);
+                tileMap.updateCamera(player.worldX, player.worldY);
+                if (moved) {
+                    TileType tile = tileMap.tileAt(
+                        player.worldX + GameWindow.TILE_SIZE / 2,
+                        player.worldY + GameWindow.TILE_SIZE / 2);
+                    if (encounterManager.onStep(tile)) {
+                        currentEncounter = encounterManager.getPending();
+                        encounterManager.clearPending();
+                        state = GameState.ENCOUNTER;
+                        encounterTimer = 0;
+                    }
                 }
             }
-        } else if (state == GameState.ENCOUNTER) {
-            encounterTimer++;
-            // auto-advance to BATTLE after flash (Part 6 will handle BATTLE state)
-            if (encounterTimer >= ENCOUNTER_FLASH_FRAMES) {
-                state = GameState.BATTLE;
+            case ENCOUNTER -> {
+                encounterTimer++;
+                if (encounterTimer >= ENCOUNTER_FLASH_FRAMES) {
+                    battleScreen = new BattleScreen(currentEncounter, playerHp);
+                    state = GameState.BATTLE;
+                }
+            }
+            case BATTLE -> {
+                battleScreen.update();
+                if (battleScreen.isReadyToTransition()) {
+                    playerHp = battleScreen.getPlayerHp();
+                    state = GameState.EXPLORE;
+                    battleScreen = null;
+                }
             }
         }
-        // BATTLE state handled in Part 6
     }
 
     @Override
@@ -91,28 +102,31 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        if (state == GameState.EXPLORE) {
-            tileMap.draw(g2);
-            player.draw(g2, tileMap.camX, tileMap.camY);
-            drawZoneHint(g2);
-
-        } else if (state == GameState.ENCOUNTER) {
-            tileMap.draw(g2);
-            player.draw(g2, tileMap.camX, tileMap.camY);
-            drawEncounterFlash(g2);
-
-        } else if (state == GameState.BATTLE) {
-            // placeholder until Part 6
-            drawBattlePlaceholder(g2);
+        switch (state) {
+            case EXPLORE -> {
+                tileMap.draw(g2);
+                player.draw(g2, tileMap.camX, tileMap.camY);
+                drawZoneHint(g2);
+                drawPlayerHp(g2);
+            }
+            case ENCOUNTER -> {
+                tileMap.draw(g2);
+                player.draw(g2, tileMap.camX, tileMap.camY);
+                drawEncounterFlash(g2);
+            }
+            case BATTLE -> {
+                if (battleScreen != null) battleScreen.draw(g2);
+            }
         }
 
         g2.dispose();
     }
 
     private void drawZoneHint(Graphics2D g2) {
-        TileType standing = tileMap.tileAt(player.worldX + GameWindow.TILE_SIZE / 2,
-                                           player.worldY + GameWindow.TILE_SIZE / 2);
-        Eeveelution here = Eeveelution.forZone(standing);
+        TileType tile = tileMap.tileAt(
+            player.worldX + GameWindow.TILE_SIZE / 2,
+            player.worldY + GameWindow.TILE_SIZE / 2);
+        Eeveelution here = Eeveelution.forZone(tile);
         if (here == null) return;
 
         String hint = here.name + " may appear!";
@@ -127,8 +141,28 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         g2.drawString(hint, x + 8, y + 17);
     }
 
+    private void drawPlayerHp(Graphics2D g2) {
+        int x = GameWindow.SCREEN_WIDTH - 180;
+        int y = GameWindow.SCREEN_HEIGHT - 36;
+        int barW = 120, barH = 10;
+
+        g2.setColor(new Color(0, 0, 0, 160));
+        g2.fillRoundRect(x - 8, y - 14, 168, 28, 8, 8);
+
+        g2.setFont(new Font("Arial", Font.BOLD, 12));
+        g2.setColor(Color.WHITE);
+        g2.drawString("HP: " + playerHp + "/50", x, y);
+
+        double ratio = playerHp / 50.0;
+        g2.setColor(new Color(60, 60, 60));
+        g2.fillRoundRect(x, y + 4, barW, barH, 4, 4);
+        g2.setColor(ratio > 0.5 ? new Color(80, 200, 80)
+                  : ratio > 0.2 ? new Color(220, 180, 40)
+                                : new Color(200, 60, 60));
+        g2.fillRoundRect(x, y + 4, (int)(barW * ratio), barH, 4, 4);
+    }
+
     private void drawEncounterFlash(Graphics2D g2) {
-        // flicker overlay
         int alpha = (int)(160 * Math.abs(Math.sin(encounterTimer * 0.15)));
         g2.setColor(new Color(
             currentEncounter.color.getRed(),
@@ -143,29 +177,10 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         g2.drawString(msg, x, GameWindow.SCREEN_HEIGHT / 2);
     }
 
-    private void drawBattlePlaceholder(Graphics2D g2) {
-        g2.setColor(new Color(20, 10, 40));
-        g2.fillRect(0, 0, GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT);
-
-        g2.setColor(currentEncounter.color);
-        g2.setFont(new Font("Arial", Font.BOLD, 24));
-        String msg = "Battle: " + currentEncounter.name + " (coming in Part 6)";
-        int x = (GameWindow.SCREEN_WIDTH - g2.getFontMetrics().stringWidth(msg)) / 2;
-        g2.drawString(msg, x, GameWindow.SCREEN_HEIGHT / 2);
-
-        g2.setColor(Color.WHITE);
-        g2.setFont(new Font("Arial", Font.PLAIN, 14));
-        String sub = "Press R to flee back to map";
-        int sx = (GameWindow.SCREEN_WIDTH - g2.getFontMetrics().stringWidth(sub)) / 2;
-        g2.drawString(sub, sx, GameWindow.SCREEN_HEIGHT / 2 + 40);
-    }
-
-    // KeyListener for game-state transitions (not movement)
     @Override
     public void keyPressed(KeyEvent e) {
-        if (state == GameState.BATTLE && e.getKeyCode() == KeyEvent.VK_R) {
-            state = GameState.EXPLORE;
-            currentEncounter = null;
+        if (state == GameState.BATTLE && battleScreen != null) {
+            battleScreen.handleKey(e.getKeyCode());
         }
     }
     @Override public void keyReleased(KeyEvent e) {}
