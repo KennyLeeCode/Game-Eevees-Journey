@@ -11,7 +11,8 @@ public class GamePanel extends JPanel implements Runnable {
     private Thread gameThread;
 
     private final KeyHandler keyHandler = new KeyHandler();
-    private final Player player = new Player(keyHandler);
+    private final TileMap tileMap       = new TileMap();
+    private final Player  player        = new Player(keyHandler);
 
     public GamePanel() {
         setPreferredSize(new Dimension(GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT));
@@ -48,7 +49,8 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void update() {
-        player.update();
+        player.update(tileMap);
+        tileMap.updateCamera(player.worldX, player.worldY);
     }
 
     @Override
@@ -57,11 +59,8 @@ public class GamePanel extends JPanel implements Runnable {
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // dark night background
-        g2.setColor(new Color(10, 10, 30));
-        g2.fillRect(0, 0, GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT);
-
-        player.draw(g2);
+        tileMap.draw(g2);
+        player.draw(g2, tileMap.camX, tileMap.camY);
 
         g2.dispose();
     }
