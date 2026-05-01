@@ -17,7 +17,8 @@ public class Player {
         worldY = (TileMap.MAP_ROWS / 2) * GameWindow.TILE_SIZE;
     }
 
-    public void update(TileMap map) {
+    // returns true if player successfully moved this frame
+    public boolean update(TileMap map) {
         int nextX = worldX;
         int nextY = worldY;
 
@@ -38,10 +39,12 @@ public class Player {
             if (map.tileAt(checkX[i], checkY[i]).solid) { blocked = true; break; }
         }
 
-        if (!blocked) {
+        if (!blocked && (nextX != worldX || nextY != worldY)) {
             worldX = nextX;
             worldY = nextY;
+            return true;
         }
+        return false;
     }
 
     public void draw(Graphics2D g2, int camX, int camY) {
