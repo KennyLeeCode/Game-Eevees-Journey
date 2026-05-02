@@ -20,6 +20,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     private final EncounterManager  encounterManager  = new EncounterManager();
     private final Collection        collection        = new Collection();
     private final CollectionScreen  collectionScreen  = new CollectionScreen();
+    private final WinScreen         winScreen         = new WinScreen();
 
     private GameState    state            = GameState.EXPLORE;
     private Eeveelution  currentEncounter = null;
@@ -107,11 +108,17 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                                          + collection.count() + "/" + collection.total() + ")";
                         caughtToastTimer = TOAST_DURATION;
                     }
-                    state = GameState.EXPLORE;
                     battleScreen = null;
+                    // check win condition after every catch
+                    if (collection.hasAll()) {
+                        state = GameState.WIN;
+                    } else {
+                        state = GameState.EXPLORE;
+                    }
                 }
             }
             case COLLECTION -> {} // no update logic needed — just a static overlay
+            case WIN        -> winScreen.update();
         }
     }
 
@@ -144,6 +151,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                 player.draw(g2, tileMap.camX, tileMap.camY);
                 collectionScreen.draw(g2, collection);
             }
+            case WIN -> winScreen.draw(g2, collection);
         }
 
         g2.dispose();
@@ -240,10 +248,27 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         }
         // C key toggles the collection screen from the overworld
         if (e.getKeyCode() == KeyEvent.VK_C) {
-            if (state == GameState.EXPLORE)     state = GameState.COLLECTION;
+            if (state == GameState.EXPLORE)         state = GameState.COLLECTION;
             else if (state == GameState.COLLECTION) state = GameState.EXPLORE;
         }
+        // ENTER on the win screen restarts the game
+        if (e.getKeyCode() == KeyEvent.VK_ENTER && state == GameState.WIN) {
+            restartGame();
+        }
     }
+    // Resets all game state so the player can start over
+    private void restartGame() {
+        collection.getAll().clear();
+        playerHp         = 50;
+        currentEncounter = null;
+        battleScreen     = null;
+        encounterTimer   = 0;
+        caughtToastTimer = 0;
+        player.worldX = (TileMap.MAP_COLS / 2) * GameWindow.TILE_SIZE;
+        player.worldY = (TileMap.MAP_ROWS / 2) * GameWindow.TILE_SIZE;
+        state = GameState.EXPLORE;
+    }
+
     @Override public void keyReleased(KeyEvent e) {}
     @Override public void keyTyped(KeyEvent e) {}
 }
