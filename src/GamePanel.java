@@ -8,7 +8,7 @@ import java.awt.RenderingHints;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 
-// The main game panel — runs the game loop, manages game state, and draws each screen
+// The main game panel - runs the game loop, manages game state, and draws each screen
 public class GamePanel extends JPanel implements Runnable, KeyListener {
 
     private static final int FPS = 60;
@@ -30,7 +30,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     private int encounterTimer = 0;
     private static final int ENCOUNTER_FLASH_FRAMES = 90;
 
-    // brief toast shown after catching an Eeveelution
+    // brief toast shown after catching an Eeveelution or healing
     private String caughtToastMsg   = "";
     private int    caughtToastTimer = 0;
     private static final int TOAST_DURATION = 180; // 3 seconds at 60fps
@@ -51,7 +51,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         gameThread.start();
     }
 
-    // Game loop — updates and redraws at 60fps using a delta-time accumulator
+    // Game loop - updates and redraws at 60fps using a delta-time accumulator
     @Override
     public void run() {
         double drawInterval = 1_000_000_000.0 / FPS;
@@ -101,24 +101,27 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
             case BATTLE -> {
                 battleScreen.update();
                 if (battleScreen.isReadyToTransition()) {
+                    BattleScreen.Outcome outcome = battleScreen.getOutcome();
                     playerHp = battleScreen.getPlayerHp();
-                    if (battleScreen.getOutcome() == BattleScreen.Outcome.CAUGHT) {
+                    if (outcome == BattleScreen.Outcome.CAUGHT) {
                         collection.add(battleScreen.getEeveelution());
                         caughtToastMsg   = battleScreen.getEeveelution().name + " added to collection!  ("
                                          + collection.count() + "/" + collection.total() + ")";
                         caughtToastTimer = TOAST_DURATION;
                     }
                     battleScreen = null;
-                    // check win condition after every catch
-                    if (collection.hasAll()) {
+                    if (outcome == BattleScreen.Outcome.FAINTED) {
+                        state = GameState.GAME_OVER;
+                    } else if (collection.hasAll()) {
                         state = GameState.WIN;
                     } else {
                         state = GameState.EXPLORE;
                     }
                 }
             }
-            case COLLECTION -> {} // no update logic needed — just a static overlay
+            case COLLECTION -> {} // no update logic needed - just a static overlay
             case WIN        -> winScreen.update();
+            case GAME_OVER  -> {}
         }
     }
 
@@ -151,7 +154,8 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
                 player.draw(g2, tileMap.camX, tileMap.camY);
                 collectionScreen.draw(g2, collection);
             }
-            case WIN -> winScreen.draw(g2, collection);
+            case WIN      -> winScreen.draw(g2, collection);
+            case GAME_OVER -> drawGameOver(g2);
         }
 
         g2.dispose();
@@ -199,7 +203,7 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
     }
 
     private void drawCollectionCounter(Graphics2D g2) {
-        String text = "Caught: " + collection.count() + "/" + collection.total() + "  [C] to view";
+        String text = "Caught: " + collection.count() + "/" + collection.total() + "  [C] view  [E] heal";
         g2.setFont(new Font("Arial", Font.BOLD, 12));
         int w = g2.getFontMetrics().stringWidth(text) + 16;
 
@@ -223,6 +227,23 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         g2.fillRoundRect(x, y, w, 28, 10, 10);
         g2.setColor(new Color(255, 255, 255, a));
         g2.drawString(caughtToastMsg, x + 12, y + 20);
+    }
+
+    private void drawGameOver(Graphics2D g2) {
+        g2.setColor(new Color(0, 0, 0, 220));
+        g2.fillRect(0, 0, GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT);
+
+        g2.setFont(new Font("Arial", Font.BOLD, 48));
+        g2.setColor(new Color(220, 60, 60));
+        String title = "You Fainted!";
+        int tw = g2.getFontMetrics().stringWidth(title);
+        g2.drawString(title, (GameWindow.SCREEN_WIDTH - tw) / 2, GameWindow.SCREEN_HEIGHT / 2 - 20);
+
+        g2.setFont(new Font("Arial", Font.BOLD, 18));
+        g2.setColor(Color.WHITE);
+        String sub = "Press ENTER to try again";
+        int sw = g2.getFontMetrics().stringWidth(sub);
+        g2.drawString(sub, (GameWindow.SCREEN_WIDTH - sw) / 2, GameWindow.SCREEN_HEIGHT / 2 + 30);
     }
 
     private void drawEncounterFlash(Graphics2D g2) {
@@ -251,8 +272,16 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
             if (state == GameState.EXPLORE)         state = GameState.COLLECTION;
             else if (state == GameState.COLLECTION) state = GameState.EXPLORE;
         }
-        // ENTER on the win screen restarts the game
-        if (e.getKeyCode() == KeyEvent.VK_ENTER && state == GameState.WIN) {
+        // E key interacts with the healing machine
+        if (e.getKeyCode() == KeyEvent.VK_E && state == GameState.EXPLORE) {
+            if (tileMap.isAdjacentToHealingMachine(player.worldX, player.worldY)) {
+                playerHp         = 50;
+                caughtToastMsg   = "HP fully restored!";
+                caughtToastTimer = TOAST_DURATION;
+            }
+        }
+        // ENTER on the win or game-over screen restarts the game
+        if (e.getKeyCode() == KeyEvent.VK_ENTER && (state == GameState.WIN || state == GameState.GAME_OVER)) {
             restartGame();
         }
     }
@@ -264,8 +293,8 @@ public class GamePanel extends JPanel implements Runnable, KeyListener {
         battleScreen     = null;
         encounterTimer   = 0;
         caughtToastTimer = 0;
-        player.worldX = (TileMap.MAP_COLS / 2) * GameWindow.TILE_SIZE;
-        player.worldY = (TileMap.MAP_ROWS / 2) * GameWindow.TILE_SIZE;
+        player.worldX = 5 * GameWindow.TILE_SIZE;
+        player.worldY = 8 * GameWindow.TILE_SIZE;
         state = GameState.EXPLORE;
     }
 

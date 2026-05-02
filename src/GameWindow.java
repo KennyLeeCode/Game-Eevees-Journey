@@ -1,7 +1,7 @@
 import javax.swing.JFrame;
 import java.awt.Dimension;
 
-// The game window — sets the size and holds the GamePanel where everything is drawn
+// The game window - sets the size and holds the GamePanel where everything is drawn
 public class GameWindow extends JFrame {
 
     // Each tile is 48x48 pixels; the screen shows 16 tiles wide and 12 tiles tall

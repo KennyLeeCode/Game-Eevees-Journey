@@ -1,6 +1,6 @@
 import java.awt.Color;
-import java.awt.Font;
 import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 
 public class TileMap {
 
@@ -18,91 +18,36 @@ public class TileMap {
     }
 
     private void buildMap() {
-        // fill base with grass
-        for (int r = 0; r < MAP_ROWS; r++)
-            for (int c = 0; c < MAP_COLS; c++)
-                tiles[r][c] = TileType.GRASS;
+        // zones extend to every edge - no tree border, out-of-bounds check in tileAt() stops the player
+        fillZone(0,  7,  0,  9,  TileType.STARTER_PLAINS);  // Eevee Grove      (top-left)
+        fillZone(0,  7,  10, 20, TileType.ELECTRIC_ZONE);  // Static Field     (top-center)
+        fillZone(0,  7,  21, 31, TileType.WATER);          // Ripple Creek     (top-right)
+        fillZone(8,  15, 0,  9,  TileType.FIRE_ZONE);      // Ember Clearing   (mid-left)
+        fillZone(8,  15, 10, 20, TileType.DARK_ZONE);      // Moonlit Ridge    (mid-center)
+        fillZone(8,  15, 21, 31, TileType.PSYCHIC_ZONE);   // Sunpetal Meadow  (mid-right)
+        fillZone(16, 23, 0,  9,  TileType.FOREST);         // Verdant Canopy   (bot-left)
+        fillZone(16, 23, 10, 20, TileType.ICE_ZONE);       // Frostbite Pass   (bot-center)
+        fillZone(16, 23, 21, 31, TileType.FAIRY_ZONE);     // Fairy Bloom Gdn  (bot-right)
 
-        // border trees
-        for (int r = 0; r < MAP_ROWS; r++) {
-            tiles[r][0] = TileType.TREE;
-            tiles[r][MAP_COLS - 1] = TileType.TREE;
-        }
+        // horizontal path separators (full width)
         for (int c = 0; c < MAP_COLS; c++) {
-            tiles[0][c] = TileType.TREE;
-            tiles[MAP_ROWS - 1][c] = TileType.TREE;
+            tiles[8][c]  = TileType.PATH;
+            tiles[16][c] = TileType.PATH;
+        }
+        // vertical path separators (full height)
+        for (int r = 0; r < MAP_ROWS; r++) {
+            tiles[r][10] = TileType.PATH;
+            tiles[r][21] = TileType.PATH;
         }
 
-        // main horizontal path across middle
-        for (int c = 1; c < MAP_COLS - 1; c++)
-            tiles[MAP_ROWS / 2][c] = TileType.PATH;
+        // healing machine - at the crossroads where the top path meets the left vertical path
+        tiles[8][10] = TileType.HEALING_MACHINE;
+    }
 
-        // vertical path down center
-        for (int r = 1; r < MAP_ROWS - 1; r++)
-            tiles[r][MAP_COLS / 2] = TileType.PATH;
-
-        // --- existing zones ---
-
-        // water / Vaporeon — top-right
-        for (int r = 2; r < 9; r++)
-            for (int c = 18; c < 28; c++)
-                tiles[r][c] = TileType.WATER;
-        for (int r = 1; r < 10; r++)
-            for (int c = 17; c < 29; c++)
-                if (tiles[r][c] == TileType.GRASS)
-                    tiles[r][c] = TileType.SAND;
-
-        // forest / Leafeon — bottom-left
-        for (int r = 14; r < 22; r++)
-            for (int c = 2; c < 14; c++)
-                if (tiles[r][c] == TileType.GRASS)
-                    tiles[r][c] = TileType.FOREST;
-        int[][] forestTrees = {{15,3},{15,7},{16,11},{17,4},{18,8},{19,3},{20,10},{21,6}};
-        for (int[] t : forestTrees)
-            tiles[t[0]][t[1]] = TileType.TREE;
-
-        // moon shrine — center clearing
-        for (int r = 9; r < 13; r++)
-            for (int c = 13; c < 18; c++)
-                tiles[r][c] = TileType.MOON_SHRINE;
-
-        // --- new Eeveelution zones ---
-
-        // ice / Glaceon — top-left
-        for (int r = 2; r < 10; r++)
-            for (int c = 2; c < 12; c++)
-                if (tiles[r][c] == TileType.GRASS)
-                    tiles[r][c] = TileType.ICE_ZONE;
-
-        // fire / Flareon — bottom-right
-        for (int r = 15; r < 22; r++)
-            for (int c = 19; c < 29; c++)
-                if (tiles[r][c] == TileType.GRASS)
-                    tiles[r][c] = TileType.FIRE_ZONE;
-
-        // electric / Jolteon — top-center
-        for (int r = 2; r < 8; r++)
-            for (int c = 13; c < 17; c++)
-                if (tiles[r][c] == TileType.GRASS)
-                    tiles[r][c] = TileType.ELECTRIC_ZONE;
-
-        // dark / Umbreon — bottom-center
-        for (int r = 15; r < 22; r++)
-            for (int c = 14; c < 18; c++)
-                if (tiles[r][c] == TileType.GRASS)
-                    tiles[r][c] = TileType.DARK_ZONE;
-
-        // fairy / Sylveon — right-middle
-        for (int r = 10; r < 16; r++)
-            for (int c = 19; c < 27; c++)
-                if (tiles[r][c] == TileType.GRASS)
-                    tiles[r][c] = TileType.FAIRY_ZONE;
-
-        // psychic / Espeon — left-middle
-        for (int r = 9; r < 14; r++)
-            for (int c = 2; c < 12; c++)
-                if (tiles[r][c] == TileType.GRASS)
-                    tiles[r][c] = TileType.PSYCHIC_ZONE;
+    private void fillZone(int r1, int r2, int c1, int c2, TileType type) {
+        for (int r = r1; r <= r2; r++)
+            for (int c = c1; c <= c2; c++)
+                tiles[r][c] = type;
     }
 
     public TileType tileAt(int worldX, int worldY) {
@@ -131,93 +76,87 @@ public class TileMap {
         int endCol   = Math.min(startCol + GameWindow.SCREEN_COLS + 1, MAP_COLS);
         int endRow   = Math.min(startRow + GameWindow.SCREEN_ROWS + 1, MAP_ROWS);
 
+        BufferedImage tileset = SpriteLoader.getOverworldTileset();
+        int panelW = tileset != null ? tileset.getWidth()  / 3 : 0;
+        int panelH = tileset != null ? tileset.getHeight() / 3 : 0;
+
         for (int r = startRow; r < endRow; r++) {
             for (int c = startCol; c < endCol; c++) {
                 TileType tile = tiles[r][c];
                 int sx = c * ts - camX;
                 int sy = r * ts - camY;
 
-                g2.setColor(tile.color);
-                g2.fillRect(sx, sy, ts, ts);
+                int[] panel = getZonePanelCoord(tile);
 
-                if (tile != TileType.TREE && tile != TileType.WATER) {
-                    g2.setColor(new Color(0, 0, 0, 20));
-                    g2.drawRect(sx, sy, ts, ts);
-                }
+                // healing machine - drawn exactly one tile in size
+                if (tile == TileType.HEALING_MACHINE) {
+                    g2.setColor(new Color(180, 220, 180));
+                    g2.fillRect(sx, sy, ts, ts);
+                    BufferedImage hm = SpriteLoader.getHealingMachine();
+                    if (hm != null) {
+                        g2.drawImage(hm, sx, sy, ts, ts, null);
+                    }
+                } else if (panel != null && tileset != null) {
+                    // sample a tile-sized chunk from the panel, tiling across the zone
+                    int originX = panel[0] * panelW;
+                    int originY = panel[1] * panelH;
+                    int srcX = originX + (c * ts) % Math.max(1, panelW - ts);
+                    int srcY = originY + (r * ts) % Math.max(1, panelH - ts);
+                    g2.drawImage(tileset,
+                        sx, sy, sx + ts, sy + ts,
+                        srcX, srcY, srcX + ts, srcY + ts, null);
+                } else {
+                    // fallback to solid color for tiles without a panel
+                    g2.setColor(tile.color);
+                    g2.fillRect(sx, sy, ts, ts);
 
-                switch (tile) {
-                    case TREE -> {
-                        g2.setColor(new Color(10, 60, 10));
-                        g2.fillOval(sx + 6, sy + 4, ts - 12, ts - 8);
-                        g2.setColor(new Color(100, 70, 30));
-                        g2.fillRect(sx + ts/2 - 4, sy + ts - 14, 8, 12);
+                    switch (tile) {
+                        case TREE -> {
+                            g2.setColor(new Color(10, 60, 10));
+                            g2.fillOval(sx + 6, sy + 4, ts - 12, ts - 8);
+                            g2.setColor(new Color(100, 70, 30));
+                            g2.fillRect(sx + ts/2 - 4, sy + ts - 14, 8, 12);
+                        }
+                        case WATER -> {
+                            g2.setColor(new Color(100, 160, 255, 80));
+                            g2.fillRect(sx + 4,      sy + ts/3,     ts/3, 4);
+                            g2.fillRect(sx + ts/2+2, sy + ts/3*2-2, ts/4, 4);
+                        }
+                        default -> {
+                            g2.setColor(new Color(0, 0, 0, 20));
+                            g2.drawRect(sx, sy, ts, ts);
+                        }
                     }
-                    case WATER -> {
-                        g2.setColor(new Color(100, 160, 255, 80));
-                        g2.fillRect(sx + 4,      sy + ts/3,     ts/3, 4);
-                        g2.fillRect(sx + ts/2+2, sy + ts/3*2-2, ts/4, 4);
-                    }
-                    case MOON_SHRINE -> {
-                        g2.setColor(new Color(220, 200, 255));
-                        g2.drawOval(sx + ts/4, sy + ts/4, ts/2, ts/2);
-                        g2.setColor(new Color(255, 240, 180));
-                        g2.fillOval(sx + ts/2 - 4, sy + ts/2 - 4, 8, 8);
-                    }
-                    case ICE_ZONE -> {
-                        g2.setColor(new Color(220, 240, 255, 120));
-                        g2.fillRect(sx + ts/3, sy + ts/3, ts/3, ts/3);
-                    }
-                    case FIRE_ZONE -> {
-                        g2.setColor(new Color(255, 180, 40, 120));
-                        g2.fillOval(sx + ts/3, sy + ts/4, ts/3, ts/2);
-                    }
-                    case ELECTRIC_ZONE -> {
-                        g2.setColor(new Color(255, 255, 100, 140));
-                        int[] xp = {sx+ts/2, sx+ts/3, sx+ts/2, sx+ts*2/3};
-                        int[] yp = {sy+4,    sy+ts/2, sy+ts/2, sy+ts-4};
-                        g2.drawPolyline(xp, yp, 4);
-                    }
-                    case DARK_ZONE -> {
-                        g2.setColor(new Color(180, 140, 255, 100));
-                        g2.fillOval(sx + ts/4, sy + ts/4, ts/2, ts/2);
-                    }
-                    case FAIRY_ZONE -> {
-                        g2.setColor(new Color(255, 200, 220, 130));
-                        g2.fillOval(sx + ts/2 - 4, sy + ts/2 - 4, 8, 8);
-                        g2.fillOval(sx + ts/4,     sy + ts/4,     6, 6);
-                        g2.fillOval(sx + ts*3/4-6, sy + ts/4,     6, 6);
-                    }
-                    case PSYCHIC_ZONE -> {
-                        g2.setColor(new Color(255, 180, 255, 120));
-                        g2.drawOval(sx + ts/4,     sy + ts/4,     ts/2, ts/2);
-                        g2.drawOval(sx + ts/4 + 3, sy + ts/4 + 3, ts/2 - 6, ts/2 - 6);
-                    }
-                    default -> {}
                 }
             }
         }
-
-        drawLegend(g2);
     }
 
-    private void drawLegend(Graphics2D g2) {
-        int x = 8, y = 8;
-        int sw = 12, sh = 12, pad = 2;
-        g2.setFont(new Font("Arial", Font.PLAIN, 10));
+    // Returns true if any tile directly adjacent to the given world position is a healing machine
+    public boolean isAdjacentToHealingMachine(int worldX, int worldY) {
+        int ts = GameWindow.TILE_SIZE;
+        int cx = worldX + ts / 2;
+        int cy = worldY + ts / 2;
+        return tileAt(cx, cy - ts) == TileType.HEALING_MACHINE
+            || tileAt(cx, cy + ts) == TileType.HEALING_MACHINE
+            || tileAt(cx - ts, cy) == TileType.HEALING_MACHINE
+            || tileAt(cx + ts, cy) == TileType.HEALING_MACHINE;
+    }
 
-        String[] labels = {"Vaporeon","Leafeon","Glaceon","Flareon","Jolteon","Umbreon","Sylveon","Espeon"};
-        TileType[] zones = {TileType.WATER, TileType.FOREST, TileType.ICE_ZONE, TileType.FIRE_ZONE,
-                            TileType.ELECTRIC_ZONE, TileType.DARK_ZONE, TileType.FAIRY_ZONE, TileType.PSYCHIC_ZONE};
-
-        g2.setColor(new Color(0, 0, 0, 140));
-        g2.fillRoundRect(x - 4, y - 4, 100, labels.length * (sh + pad) + 8, 6, 6);
-
-        for (int i = 0; i < labels.length; i++) {
-            int iy = y + i * (sh + pad);
-            g2.setColor(zones[i].color);
-            g2.fillRect(x, iy, sw, sh);
-            g2.setColor(Color.WHITE);
-            g2.drawString(labels[i], x + sw + 4, iy + sh - 2);
-        }
+    // Maps each zone tile to its (col, row) panel in the overworldBackground tileset
+    // Tileset is a 3×3 grid of panels matching the in-game zone layout exactly
+    private static int[] getZonePanelCoord(TileType tile) {
+        return switch (tile) {
+            case STARTER_PLAINS -> new int[]{0, 0}; // Eevee Grove     - top-left panel
+            case ELECTRIC_ZONE -> new int[]{1, 0}; // Static Field    - top-center panel
+            case WATER         -> new int[]{2, 0}; // Ripple Creek    - top-right panel
+            case FIRE_ZONE     -> new int[]{0, 1}; // Ember Clearing  - mid-left panel
+            case DARK_ZONE     -> new int[]{1, 1}; // Moonlit Ridge   - mid-center panel
+            case PSYCHIC_ZONE  -> new int[]{2, 1}; // Sunpetal Meadow - mid-right panel
+            case FOREST        -> new int[]{0, 2}; // Verdant Canopy  - bot-left panel
+            case ICE_ZONE      -> new int[]{1, 2}; // Frostbite Pass  - bot-center panel
+            case FAIRY_ZONE    -> new int[]{2, 2}; // Fairy Bloom Gdn - bot-right panel
+            default            -> null;
+        };
     }
 }

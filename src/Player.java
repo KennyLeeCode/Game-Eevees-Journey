@@ -2,7 +2,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
-// The player character — handles movement, collision, and sprite animation
+// The player character - handles movement, collision, and sprite animation
 public class Player {
 
     public int worldX, worldY; // position in world pixels (not tile coordinates)
@@ -13,16 +13,16 @@ public class Player {
     private int     direction = 0;
     private boolean moving    = false;
 
-    // sprite sheet animation — cycles through 3 frames while walking
+    // sprite sheet animation - cycles through 3 frames while walking
     private int animFrame = 0;
     private int animTimer = 0;
     private static final int ANIM_SPEED = 10; // frames of game time per animation step
 
     public Player(KeyHandler keys) {
         this.keys = keys;
-        // spawn at the center of the world map
-        worldX = (TileMap.MAP_COLS / 2) * GameWindow.TILE_SIZE;
-        worldY = (TileMap.MAP_ROWS / 2) * GameWindow.TILE_SIZE;
+        // spawn on the horizontal path near Eevee Grove
+        worldX = 5 * GameWindow.TILE_SIZE;
+        worldY = 8 * GameWindow.TILE_SIZE;
     }
 
     // Moves the player and returns true if they actually moved (used to trigger encounter checks)

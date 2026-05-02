@@ -30,4 +30,16 @@ public class SpriteLoader {
         // filename matches the enum name in lowercase, e.g. "vaporeon.png"
         return load("img/" + e.name.toLowerCase() + ".png");
     }
+
+    public static BufferedImage getOverworldTileset() {
+        return load("img/overworldBackground.png");
+    }
+
+    public static BufferedImage getBattleBackground() {
+        return load("img/battleBackground.png");
+    }
+
+    public static BufferedImage getHealingMachine() {
+        return load("img/healingMachine.png");
+    }
 }

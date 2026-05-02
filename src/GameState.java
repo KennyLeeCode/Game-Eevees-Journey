@@ -4,5 +4,6 @@ public enum GameState {
     ENCOUNTER,  // flashing transition when a wild Eeveelution appears
     BATTLE,     // battle screen is open
     COLLECTION, // collection overlay is open
-    WIN         // player caught all Eeveelutions
+    WIN,        // player caught all Eeveelutions
+    GAME_OVER   // player's HP reached zero
 }

@@ -50,14 +50,14 @@ public class CollectionScreen {
     }
 
     private void drawCard(Graphics2D g2, Eeveelution e, boolean caught, int x, int y) {
-        // card background — bright if caught, dim if not
+        // card background - bright if caught, dim if not
         Color bgColor = caught
             ? new Color(e.color.getRed() / 4, e.color.getGreen() / 4, e.color.getBlue() / 4, 220)
             : new Color(30, 25, 45, 200);
         g2.setColor(bgColor);
         g2.fillRoundRect(x, y, CARD_W, CARD_H, 10, 10);
 
-        // border — colored if caught, grey if not
+        // border - colored if caught, grey if not
         g2.setColor(caught ? e.color : new Color(70, 60, 90));
         g2.drawRoundRect(x, y, CARD_W, CARD_H, 10, 10);
 

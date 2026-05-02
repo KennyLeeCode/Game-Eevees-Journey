@@ -11,7 +11,7 @@ public enum Eeveelution {
     UMBREON  ("Umbreon",   TileType.DARK_ZONE,       new Color( 60,  50,  90), 50),
     SYLVEON  ("Sylveon",   TileType.FAIRY_ZONE,      new Color(240, 160, 200), 40),
     ESPEON   ("Espeon",    TileType.PSYCHIC_ZONE,    new Color(200, 120, 200), 40),
-    EEVEE    ("Eevee",     TileType.MOON_SHRINE,     new Color(200, 160, 100), 35);
+    EEVEE    ("Eevee",     TileType.STARTER_PLAINS,  new Color(200, 160, 100), 35);
 
     public final String   name;
     public final TileType zone;

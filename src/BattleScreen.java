@@ -9,7 +9,7 @@ import java.util.Random;
 // drawing the UI, processing player input, and running the catch/attack/run logic
 public class BattleScreen {
 
-    // The result of the battle — GamePanel reads this to decide what to do next
+    // The result of the battle - GamePanel reads this to decide what to do next
     public enum Outcome { NONE, FLED, CAUGHT, FAINTED }
 
     private static final int      MAX_PLAYER_HP = 50;
@@ -59,7 +59,7 @@ public class BattleScreen {
         logLine1 = "You attacked! Dealt " + dmg + " damage.";
 
         if (enemyHp <= 0) {
-            // enemy fainted but wasn't caught — treat as fled
+            // enemy fainted but wasn't caught - treat as fled
             logLine2 = eeveelution.name + " fainted! It got away...";
             endBattle(Outcome.FLED);
             return;
@@ -71,8 +71,7 @@ public class BattleScreen {
         logLine2 = eeveelution.name + " hit back! Took " + edamage + " damage.";
 
         if (playerHp <= 0) {
-            logLine2 = "You fainted! Fleeing...";
-            playerHp = MAX_PLAYER_HP; // restore HP so the player can keep exploring
+            logLine2 = "You fainted!";
             endBattle(Outcome.FAINTED);
             return;
         }
@@ -93,7 +92,7 @@ public class BattleScreen {
             playerHp = Math.max(0, playerHp - edamage);
             logLine2 = eeveelution.name + " hit back! Took " + edamage + " damage.";
             if (playerHp <= 0) {
-                playerHp = MAX_PLAYER_HP;
+                logLine2 = "You fainted!";
                 endBattle(Outcome.FAINTED);
                 return;
             }
@@ -127,22 +126,31 @@ public class BattleScreen {
     public Eeveelution getEeveelution() { return eeveelution; }
 
     public void draw(Graphics2D g2) {
-        g2.setColor(new Color(20, 10, 40));
-        g2.fillRect(0, 0, GameWindow.SCREEN_WIDTH, GameWindow.SCREEN_HEIGHT);
-
         drawBattlefield(g2);
         drawMenuPanel(g2);
     }
 
     private void drawBattlefield(Graphics2D g2) {
-        g2.setColor(new Color(40, 30, 70));
-        g2.fillRect(0, 260, GameWindow.SCREEN_WIDTH, 100);
+        // draw the battle background image scaled to fill the battlefield area
+        BufferedImage bg = SpriteLoader.getBattleBackground();
+        if (bg != null) {
+            g2.drawImage(bg, 0, 0, GameWindow.SCREEN_WIDTH, MENU_Y, null);
+        } else {
+            g2.setColor(new Color(40, 30, 70));
+            g2.fillRect(0, 0, GameWindow.SCREEN_WIDTH, MENU_Y);
+        }
 
-        // enemy sprite on the right
-        BufferedImage enemySprite = SpriteLoader.getEeveelution(eeveelution);
+        // enemy sprite on the right - feet land on platform at y=210
         int eSize = 180;
         int eX    = GameWindow.SCREEN_WIDTH - eSize - 60;
-        int eY    = 80;
+        int eY    = 30; // feet at eY + eSize = 210
+        int ePlatY = eY + eSize; // y where feet touch the platform
+
+        // draw enemy ground platform oval
+        g2.setColor(new Color(60, 50, 90, 180));
+        g2.fillOval(eX + 10, ePlatY - 12, eSize - 20, 24);
+
+        BufferedImage enemySprite = SpriteLoader.getEeveelution(eeveelution);
         if (enemySprite != null) {
             g2.drawImage(enemySprite, eX, eY, eSize, eSize, null);
         } else {
@@ -152,9 +160,15 @@ public class BattleScreen {
 
         drawNameHpBox(g2, eeveelution.name, enemyHp, eeveelution.maxHp, 40, 60, eeveelution.color);
 
-        // player sprite on the left (back-facing, as if looking at the enemy)
+        // player sprite on the left - feet land on platform at y=325
+        int pSize = 140, pX = 60, pY = 185; // feet at pY + pSize = 325
+        int pPlatY = pY + pSize;
+
+        // draw player ground platform oval
+        g2.setColor(new Color(40, 60, 40, 180));
+        g2.fillOval(pX + 5, pPlatY - 10, pSize - 10, 20);
+
         BufferedImage playerSprite = getPlayerBackSprite();
-        int pSize = 140, pX = 60, pY = 160;
         if (playerSprite != null) {
             g2.drawImage(playerSprite, pX, pY, pSize, pSize, null);
         } else {
@@ -169,7 +183,7 @@ public class BattleScreen {
         g2.setColor(new Color(80, 60, 120));
         g2.drawRect(0, MENU_Y, GameWindow.SCREEN_WIDTH - 1, GameWindow.SCREEN_HEIGHT - MENU_Y - 1);
 
-        // battle log — two lines so both the player action and enemy response are visible
+        // battle log - two lines so both the player action and enemy response are visible
         g2.setFont(new Font("Arial", Font.PLAIN, 15));
         g2.setColor(Color.WHITE);
         g2.drawString(logLine1, 24, MENU_Y + 30);
@@ -193,7 +207,7 @@ public class BattleScreen {
     }
 
     private void drawNameHpBox(Graphics2D g2, String name, int hp, int maxHp, int x, int y, Color barColor) {
-        int boxW = 220, boxH = 56;
+        int boxW = 260, boxH = 60;
         g2.setColor(new Color(0, 0, 0, 180));
         g2.fillRoundRect(x, y, boxW, boxH, 8, 8);
         g2.setColor(new Color(100, 80, 140));
@@ -201,21 +215,31 @@ public class BattleScreen {
 
         g2.setFont(new Font("Arial", Font.BOLD, 14));
         g2.setColor(Color.WHITE);
-        g2.drawString(name, x + 10, y + 20);
+        g2.drawString(name, x + 10, y + 22);
 
-        drawHpBar(g2, "HP", hp, maxHp, x + 10, y + 30, barColor);
+        // barW is calculated to stay inside the box with padding on both sides
+        int barMaxW = boxW - 20;
+        drawHpBar(g2, "HP", hp, maxHp, x + 10, y + 34, barColor, barMaxW);
     }
 
     private void drawHpBar(Graphics2D g2, String label, int hp, int maxHp, int x, int y, Color fill) {
-        int    barW  = 200, barH = 12;
+        drawHpBar(g2, label, hp, maxHp, x, y, fill, 200);
+    }
+
+    private void drawHpBar(Graphics2D g2, String label, int hp, int maxHp, int x, int y, Color fill, int maxBarW) {
+        int    barH  = 12;
         double ratio = (double) hp / maxHp;
 
         g2.setFont(new Font("Arial", Font.BOLD, 12));
         g2.setColor(new Color(180, 180, 180));
-        g2.drawString(label + ": " + hp + "/" + maxHp, x, y + barH);
+        String labelText = label + ": " + hp + "/" + maxHp;
+        g2.drawString(labelText, x, y + barH);
 
-        int labelW = g2.getFontMetrics().stringWidth(label + ": " + hp + "/" + maxHp) + 8;
+        int labelW = g2.getFontMetrics().stringWidth(labelText) + 8;
         int bx     = x + labelW;
+        int barW   = maxBarW - labelW; // remaining width after the label text
+
+        if (barW < 20) barW = 20; // minimum so bar is always visible
 
         g2.setColor(new Color(60, 60, 60));
         g2.fillRoundRect(bx, y, barW, barH, 4, 4);

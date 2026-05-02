@@ -47,7 +47,7 @@ public class WinScreen {
         g2.drawString(line1, x1, 100 + floatY);
 
         g2.setFont(new Font("Arial", Font.BOLD, 22));
-        String line2 = "The Moon Shrine glows with Eevee energy!";
+        String line2 = "Your journey through all the eevee regions is complete!";
         int x2 = (GameWindow.SCREEN_WIDTH - g2.getFontMetrics().stringWidth(line2)) / 2;
         g2.setColor(new Color(200, 180, 255));
         g2.drawString(line2, x2, 140 + floatY);
